@@ -183,12 +183,10 @@ date_time_frame = ttk.Frame(upper_half)
 current_time = ttk.Label(date_time_frame, text=str(t.strftime('%H:%M', t.localtime()) + ' Uhr'), font=("Cambria", 46))
 current_date = ttk.Label(date_time_frame, text=day0.date, font=("Cambria", 24))
 current_weekday = ttk.Label(date_time_frame, text=day0.weekday, font=("Cambria", 38))
-last_update = ttk.Label(date_time_frame, text=day0.time_of_last_measure, font=("Cambria", 18))
 date_time_frame.pack()
 current_weekday.pack(side='top', pady=(30, 0))
 current_date.pack(side='top')
-current_time.pack(side='top', pady=(10, 0))
-last_update.pack(side='top')
+current_time.pack(side='top', pady=(20, 0))
 
 # ----------------------    LOWER HALF  --------------------------------------------------------------------------------
 
