@@ -1,10 +1,8 @@
 from datetime import *
-import time as t
-import pytemperature
 import requests
-import sqlite3
 from src.mqtt import cursor, db
 from Credentials.credentials import *
+from collections import OrderedDict
 
 weekdays = {
     0: 'Montag',
@@ -18,6 +16,9 @@ weekdays = {
 
 
 class Day:
+
+    """structure to save data for each day"""
+
     def __init__(self):
         self.date = None
         self.weekday = None
@@ -25,16 +26,37 @@ class Day:
         self.min_temp = 9999
         self.description = None
         self.rain_amount = 0
+        self.snow_amount = 0
         self.wind_speed = -1
         self.wind_direction = None
+        self.temperatures = OrderedDict()
+        self.hourly_descriptions = OrderedDict()
+        self.sunset = 0
 
     def __str__(self):
-        return self.weekday + ', ' + self.date + ': ' + str(self.max_temp) + '°C/' + str(self.min_temp) + '°C, ' + \
-               str(self.description) + '\nRain: ' + str(self.rain_amount) + '\nWind: ' + str(self.wind_speed) + \
-               ' ' + self.wind_direction
+
+        """just for debugging purposes. Prints out every var to console"""
+
+        ret = self.weekday + ', ' + self.date + ': ' + str(self.max_temp) + '°C/' + str(self.min_temp) + '°C, ' + \
+              str(self.description) + '\nRain: ' + str(self.rain_amount) + \
+              '\nSnow: ' + str(self.snow_amount) + '\nWind: ' + str(self.wind_speed) + ' ' + self.wind_direction + \
+              '\nSunset at: ' + self.sunset + '\n'
+
+        if len(self.hourly_descriptions) > 0:
+            ret = ret + 'hourly_forecast:\n'
+            keys = list(self.temperatures.keys())
+            values_temperature = list(self.temperatures.values())
+            values_hourly_descriptions = list(self.hourly_descriptions.values())
+            for t in range(len(self.temperatures)):
+                ret = ret + str(keys[t]) + ': ' + str(values_temperature[t]) + ' °C, ' + \
+                      str(values_hourly_descriptions[t]) + '\n'
+        return ret
 
 
 class Today(Day):
+
+    """Specialized Day. Saves additional data concerning the current day"""
+
     def __init__(self):
         Day.__init__(self)
         self.current_temperature = 0
@@ -56,6 +78,7 @@ url = 'http://api.openweathermap.org/data/2.5/onecall?lat=' + str(lat) + '&lon='
 
 
 def get_weather():
+    # make request to url
     response = requests.get(url).json()
 
     if "cod" not in response:
@@ -77,28 +100,41 @@ def get_weather():
             days[j].weekday = weekdays.get((list(weekdays.keys())[list(weekdays.values())
                                             .index(weekdays.get(date_of_today.weekday()))] + j) % 7)
             days[j].rain_amount = 0
+            days[j].snow_amount = 0
             days[j].wind_speed = -1
             days[j].wind_direction = None
+            days[j].temperatures = OrderedDict()
+            days[j].hourly_descriptions = OrderedDict()
+            days[j].sunset = 0
 
-        # pick daily forecast
+        # daily forecast
         daily_forecast_list = response['daily']
+        dates_as_timestamps = []
 
         for measurement_of_day in range(len(daily_forecast_list)):
             # We just save information for today and the next 4 days
             if measurement_of_day > 4:
                 break
-            # read out the information
+            # read data out of json file
             current = daily_forecast_list[measurement_of_day]
             current_day = days.get(measurement_of_day)
             current_day.max_temp = round(current['temp']['max'])
             current_day.min_temp = round(current['temp']['min'])
+            current_sunset = datetime.fromtimestamp(current['sunset'])
+            current_day.sunset = current_sunset.strftime('%H:%M')
             current_day_avg_weather = current['weather'][0]['main']
+
+            # Clouds would be too general. We want it more precise
             if current_day_avg_weather == 'Clouds':
                 current_day_avg_weather = current['weather'][0]['description']
             current_day.description = current_day_avg_weather
+
             if "rain" in current:
                 current_day.rain_amount = current['rain']
-            current_day.wind_speed = current['wind_speed']
+            if "snow" in current:
+                current_day.snow_amount = current['snow']
+            current_day.wind_speed = round(current['wind_speed'] * 3.6, 1)
+
             # defining wind direction
             current_day_wind_direction_number = current['wind_deg']
             if current_day_wind_direction_number < 23:
@@ -120,10 +156,29 @@ def get_weather():
             else:
                 current_day.wind_direction = 'N'
 
+            dates_as_timestamps.append(current['dt'])
+
+        # Hourly forecast
+        hourly_forecast_list = response['hourly']
+
+        for hour in range(len(hourly_forecast_list)):
+            # for every entry
+            for d in range(len(dates_as_timestamps)):
+                if hourly_forecast_list[hour]['dt'] < dates_as_timestamps[d] - 48001:
+                    # the entry is of which day?
+                    hour_time = datetime.fromtimestamp(hourly_forecast_list[hour]['dt'])
+                    hour_time_as_string = hour_time.strftime('%H') + 'Uhr'
+                    days[d - 1].temperatures[hour_time_as_string] = round(hourly_forecast_list[hour]['temp'])
+                    hourly_weather = hourly_forecast_list[hour]['weather'][0]['main']
+
+                    if hourly_weather == 'Clouds':
+                        hourly_weather = hourly_forecast_list[hour]['weather'][0]['description']
+                    days[d - 1].hourly_descriptions[hour_time_as_string] = hourly_weather
+                    break
+
         # Debugging purpose
         for j in range(5):
             print(days.get(j))
-        db.commit()
     else:
         print(" City Not Found ")
 

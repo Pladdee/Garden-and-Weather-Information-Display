@@ -3,16 +3,16 @@ from src.mqtt import *
 from src.gui import *
 
 
+# get new weather data every 15minutes (60*15*1000 milliseconds)
 def update_weather_info():
     get_weather()
     root.after(900000, update_weather_info)
 
 
-cursor.execute("CREATE TABLE IF NOT EXISTS errors(id INTEGER PRIMARY KEY, message TEXT, date_and_time TEXT);")
-
-
-root.after(5000, update)
+root.update_view()
 root.after(900000, update_weather_info)
+# update and listen to possible new mqtt-data
+# loop forever
 while True:
     try:
         root.update()
@@ -20,7 +20,4 @@ while True:
         client.loop(.5)
     except Exception as e:
         print(e)
-        cursor.execute("INSERT INTO errors(message, date_and_time) VALUES(?, ?);",
-                       (str(e), datetime.now().strftime('%d.%m.%y %H:%M:%S')))
-        db.commit()
         sys.exit()
