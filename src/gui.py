@@ -169,6 +169,7 @@ class DayContainerV2(tk.Frame):
         self.icon.config(image=self.controller.images.get(self.day.description))
         self.max.config(text=str(self.day.max_temp) + '/')
         self.min.config(text=str(self.day.min_temp))
+        self.weekday.config(text=self.day.weekday)
 
 
 class TodayContainerV2(DayContainerV2):
