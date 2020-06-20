@@ -169,6 +169,7 @@ class DayContainerV2(tk.Frame):
         self.icon.config(image=self.controller.images.get(self.day.description))
         self.max.config(text=str(self.day.max_temp) + '/')
         self.min.config(text=str(self.day.min_temp))
+        self.weekday.config(text=self.day.weekday)
 
 
 class TodayContainerV2(DayContainerV2):
@@ -300,7 +301,6 @@ class MainView(tk.Frame):
         self.glasshouse_soil_moisture.update_label(greenhouse.soil_moisture)
         self.current_date.config(text=day0.date)
         self.current_time.config(text=t.strftime('%H:%M', t.localtime()) + ' Uhr')
-        self.current_weekday.config(text=day0.weekday)
 
 
 class DetailedView(tk.Frame):
